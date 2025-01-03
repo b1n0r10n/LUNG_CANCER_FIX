@@ -25,10 +25,10 @@ model = load_lung_cancer_model()
 #    Gantilah sesuai dengan label yang Anda miliki.
 # -------------------------------------------
 class_labels = {
-    0: 'adenocarcinoma',
-    1: 'large.cell.carcinoma',
+    0: 'adenocarcinoma_left.lower.lobe_T2_N0_M0_Ib',
+    1: 'large.cell.carcinoma_left.hilum_T2_N2_M0_IIIa',
     2: 'normal',
-    3: 'squamous.cell.carcinoma'
+    3: 'squamous.cell.carcinoma_left.hilum_T1_N2_M0_IIIa'
 }
 
 # -------------------------------------------
