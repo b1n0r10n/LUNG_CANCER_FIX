@@ -6,10 +6,11 @@ from tensorflow.keras.preprocessing import image
 from tensorflow.keras.applications.vgg16 import preprocess_input  # Sesuaikan jika model Anda berbeda
 from PIL import Image
 import os
+import pandas as pd  # Untuk visualisasi tambahan
 
-# -------------------------------------------
-# 1. Load model (dengan caching agar tidak re-load setiap ada interaksi)
-# -------------------------------------------
+# ==========================================
+# 1. Load Model (dengan caching agar tidak re-load setiap ada interaksi)
+# ==========================================
 @st.cache_resource
 def load_lung_cancer_model():
     """
@@ -18,7 +19,7 @@ def load_lung_cancer_model():
     """
     model_path = 'lung_cancer_model.h5'  # Pastikan path ini benar
     if not os.path.exists(model_path):
-        st.error(f"Gagal memuat model: File tidak ditemukan di path {model_path}")
+        st.error(f"Gagal memuat model: File tidak ditemukan di path '{model_path}'")
         return None
     try:
         model = load_model(model_path)
@@ -33,10 +34,9 @@ model = load_lung_cancer_model()
 if model is None:
     st.stop()
 
-# -------------------------------------------
-# 2. Dictionary class labels
-#    Gantilah sesuai dengan label yang Anda miliki.
-# -------------------------------------------
+# ==========================================
+# 2. Dictionary Class Labels
+# ==========================================
 class_labels = {
     0: 'adenocarcinoma',
     1: 'large.cell.carcinoma',
@@ -44,9 +44,9 @@ class_labels = {
     3: 'squamous.cell.carcinoma'
 }
 
-# -------------------------------------------
-# 3. Fungsi prediksi
-# -------------------------------------------
+# ==========================================
+# 3. Fungsi Prediksi
+# ==========================================
 def predict_lung_cancer(img_pil):
     """
     Menerima input berupa PIL Image, melakukan preprocessing,
@@ -68,7 +68,7 @@ def predict_lung_cancer(img_pil):
         # Menambahkan dimensi batch
         img_array = np.expand_dims(img_array, axis=0)
 
-        # Preprocessing tambahan (misal, jika Anda menggunakan VGG16 atau model lain)
+        # Preprocessing tambahan (sesuaikan dengan kebutuhan model Anda)
         img_array = preprocess_input(img_array)
 
         # Verifikasi bentuk array
@@ -85,14 +85,25 @@ def predict_lung_cancer(img_pil):
         # Mengambil probabilitas dari kelas yang diprediksi
         probability = predictions[0][predicted_class] * 100
 
-        return predicted_label, probability
+        return predicted_label, probability, predictions
 
     except Exception as e:
         st.error(f"Terjadi kesalahan saat melakukan prediksi: {e}")
-        return None, None
+        return None, None, None
+
+# ==========================================
+# 4. Streamlit App dengan Navigasi
+# ==========================================
 
 # -------------------------------------------
-# 4. Streamlit App
+# 4.1 Tambahkan Navigasi ke Website Utama
+# -------------------------------------------
+st.sidebar.title("Navigasi")
+main_website_url = "https://www.website-utama-anda.com"  # Ganti dengan URL website utama Anda
+st.sidebar.markdown(f"[🔙 Kembali ke Website Utama]({main_website_url})")
+
+# -------------------------------------------
+# 4.2 Judul dan Deskripsi Aplikasi
 # -------------------------------------------
 st.title("Lung Cancer Prediction App")
 st.write("""
@@ -101,9 +112,14 @@ termasuk dalam kategori **Adenocarcinoma**, **Large Cell Carcinoma**, **Normal**
 Silakan upload gambar CT-Scan di bawah ini untuk melakukan deteksi.
 """)
 
-# Upload file
+# -------------------------------------------
+# 4.3 Widget File Uploader
+# -------------------------------------------
 uploaded_file = st.file_uploader("Upload Gambar CT-Scan", type=["png", "jpg", "jpeg"])
 
+# -------------------------------------------
+# 4.4 Tampilkan Gambar dan Tombol Prediksi
+# -------------------------------------------
 if uploaded_file is not None:
     try:
         # Membaca file sebagai PIL Image
@@ -113,13 +129,44 @@ if uploaded_file is not None:
         st.image(img_pil, caption="Gambar yang di-upload", use_column_width=True)
 
         # Tombol prediksi
-        if st.button("Predict"):
+        if st.button("Prediksi"):
             with st.spinner("Memproses..."):
-                predicted_label, probability = predict_lung_cancer(img_pil)
+                predicted_label, probability, preds = predict_lung_cancer(img_pil)
 
             if predicted_label is not None:
                 # Menampilkan hasil prediksi
                 st.success(f"Hasil Prediksi: **{predicted_label.capitalize()}**")
                 st.info(f"Probabilitas: **{probability:.2f}%**")
+
+                # -------------------------------------------
+                # 4.5 Menambahkan Visualisasi Probabilitas
+                # -------------------------------------------
+                st.write("Probabilitas untuk setiap kelas:")
+                prob_dict = class_labels
+                prob_values = preds[0] * 100
+                prob_labels = [class_labels[k] for k in prob_dict.keys()]
+
+                df_probs = pd.DataFrame({
+                    'Kelas': prob_labels,
+                    'Probabilitas (%)': prob_values
+                }).set_index('Kelas')
+
+                st.bar_chart(df_probs)
+
+                # -------------------------------------------
+                # 4.6 Menambahkan Opsi Download Hasil Prediksi
+                # -------------------------------------------
+                df_result = pd.DataFrame({
+                    'Label': [predicted_label],
+                    'Probabilitas (%)': [probability]
+                })
+
+                st.download_button(
+                    label="Download Hasil Prediksi",
+                    data=df_result.to_csv(index=False),
+                    file_name='hasil_prediksi.csv',
+                    mime='text/csv',
+                )
+
     except Exception as e:
         st.error(f"Gagal memproses gambar: {e}")
