@@ -105,7 +105,7 @@ st.sidebar.markdown(f"[🔙 Kembali ke Website Utama]({main_website_url})")
 # -------------------------------------------
 # 4.2 Judul dan Deskripsi Aplikasi
 # -------------------------------------------
-st.title("Lung Cancer Prediction App")
+st.title("Lung Cancer Detection App")
 st.write("""
 Aplikasi ini menggunakan model CNN untuk mendeteksi apakah gambar CT-Scan 
 termasuk dalam kategori **Adenocarcinoma**, **Large Cell Carcinoma**, **Normal**, atau **Squamous Cell Carcinoma**.
