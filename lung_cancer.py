@@ -1,19 +1,21 @@
 import streamlit as st
 import numpy as np
-import tensorflow as tf
 from tensorflow.keras.models import load_model
 from tensorflow.keras.preprocessing import image
 from tensorflow.keras.applications.vgg16 import preprocess_input  # Sesuaikan jika model Anda berbeda
 from PIL import Image
-import os
 import pandas as pd  # Untuk visualisasi tambahan
 import gdown
+import os
+from io import BytesIO
+import openpyxl
+from openpyxl.chart import BarChart, Reference
 
 # ==========================================
 # 1. Load Model (dengan caching agar tidak re-load setiap ada interaksi)
 # ==========================================
 @st.cache_resource
-def load_breast_cancer_model():
+def load_lung_cancer_model():
     # ID file Google Drive untuk model
     file_id = "1fJkTYJl1k2Eh29bNnQmJRABLf03uEszK"  # Ganti dengan ID file model Anda di Google Drive
     model_path = "lung_cancer_model.h5"
@@ -37,7 +39,7 @@ def load_breast_cancer_model():
         st.error(f"Gagal memuat model: {e}")
         return None
 
-model = load_breast_cancer_model()
+model = load_lung_cancer_model()
 
 # Pastikan model berhasil dimuat sebelum melanjutkan
 if model is None:
@@ -62,10 +64,9 @@ def predict_lung_cancer(img_pil):
     lalu mengembalikan label dan probabilitas kelas terprediksi.
     """
     try:
-        # Tentukan ukuran gambar sesuai kebutuhan model
         img_height, img_width = 224, 224
 
-        # Pastikan gambar diubah ke RGB untuk memastikan 3 channel
+        # Konversi ke RGB untuk memastikan 3 channel
         img_pil = img_pil.convert("RGB")
 
         # Resize gambar menggunakan PIL
@@ -77,12 +78,8 @@ def predict_lung_cancer(img_pil):
         # Menambahkan dimensi batch
         img_array = np.expand_dims(img_array, axis=0)
 
-        # Preprocessing tambahan (sesuaikan dengan kebutuhan model Anda)
+        # Preprocessing tambahan
         img_array = preprocess_input(img_array)
-
-        # Verifikasi bentuk array
-        if img_array.shape != (1, img_height, img_width, 3):
-            raise ValueError(f"Ukuran input tidak sesuai: {img_array.shape}. Harus (1, {img_height}, {img_width}, 3)")
 
         # Prediksi
         predictions = model.predict(img_array)
@@ -127,7 +124,7 @@ Silakan upload gambar CT-Scan di bawah ini untuk melakukan deteksi.
 uploaded_file = st.file_uploader("Upload Gambar CT-Scan", type=["png", "jpg", "jpeg"])
 
 # -------------------------------------------
-# 4.4 Tampilkan Gambar dan Tombol Prediksi
+# 4.4 Tampilkan Gambar, Prediksi, dan Fitur Tambahan
 # -------------------------------------------
 if uploaded_file is not None:
     try:
@@ -148,12 +145,11 @@ if uploaded_file is not None:
                 st.info(f"Probabilitas: **{probability:.2f}%**")
 
                 # -------------------------------------------
-                # 4.5 Menambahkan Visualisasi Probabilitas
+                # Visualisasi Probabilitas
                 # -------------------------------------------
                 st.write("Probabilitas untuk setiap kelas:")
-                prob_dict = class_labels
                 prob_values = preds[0] * 100
-                prob_labels = [class_labels[k] for k in prob_dict.keys()]
+                prob_labels = [class_labels[k] for k in range(len(class_labels))]
 
                 df_probs = pd.DataFrame({
                     'Kelas': prob_labels,
@@ -163,19 +159,45 @@ if uploaded_file is not None:
                 st.bar_chart(df_probs)
 
                 # -------------------------------------------
-                # 4.6 Menambahkan Opsi Download Hasil Prediksi
+                # Opsi Download Hasil Prediksi dan Visualisasi (Excel)
                 # -------------------------------------------
-                df_result = pd.DataFrame({
-                    'Label': [predicted_label],
-                    'Probabilitas (%)': [probability]
-                })
+                st.write("Anda dapat mendownload hasil prediksi dan probabilitas dalam bentuk file Excel dengan visualisasi.")
 
+                # Membuat workbook Excel
+                wb = openpyxl.Workbook()
+                ws = wb.active
+                ws.title = "Hasil Prediksi"
+
+                # Menambahkan hasil prediksi ke Excel
+                ws.append(["Label", "Probabilitas (%)"])
+                ws.append([predicted_label, probability])
+                ws.append([])
+                ws.append(["Kelas", "Probabilitas (%)"])
+                for index, row in df_probs.reset_index().iterrows():
+                    ws.append(row.tolist())
+
+                # Menambahkan grafik batang ke Excel
+                chart = BarChart()
+                chart.title = "Visualisasi Probabilitas"
+                chart.x_axis.title = "Kelas"
+                chart.y_axis.title = "Probabilitas (%)"
+                data = Reference(ws, min_col=2, min_row=5, max_row=4 + len(prob_labels))
+                categories = Reference(ws, min_col=1, min_row=5, max_row=4 + len(prob_labels))
+                chart.add_data(data, titles_from_data=False)
+                chart.set_categories(categories)
+                ws.add_chart(chart, "E8")  # Menempatkan grafik di sel E8
+
+                # Simpan Excel ke buffer
+                excel_buffer = BytesIO()
+                wb.save(excel_buffer)
+                excel_buffer.seek(0)
+
+                # Tombol download untuk Excel
                 st.download_button(
-                    label="Download Hasil Prediksi",
-                    data=df_result.to_csv(index=False),
-                    file_name='hasil_prediksi.csv',
-                    mime='text/csv',
+                    label="Download Hasil Prediksi dan Visualisasi (Excel)",
+                    data=excel_buffer,
+                    file_name='hasil_prediksi_visualisasi.xlsx',
+                    mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
                 )
-
     except Exception as e:
         st.error(f"Gagal memproses gambar: {e}")
