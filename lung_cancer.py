@@ -11,24 +11,17 @@ import pandas as pd  # Untuk visualisasi tambahan
 # ==========================================
 # 1. Load Model (dengan caching agar tidak re-load setiap ada interaksi)
 # ==========================================
-  file_id = "1fJkTYJl1k2Eh29bNnQmJRABLf03uEszK"  # Ganti dengan ID file model Anda
-    model_path = "lung_cancer_model.h5"
+@st.cache_resource
+def load_breast_cancer_model():
+    model_path = 'breast_cancer.h5'
+    try:
+        model = load_model(model_path)
+        return model
+    except Exception as e:
+        st.error(f"Gagal memuat model: {e}")
+        return None
 
-    # Unduh model dari Google Drive jika belum ada
-    if not os.path.exists(model_path):
-        with st.spinner("Mengunduh model dari Google Drive..."):
-            url = f"https://drive.google.com/uc?id={file_id}"
-            gdown.download(url, model_path, quiet=False)
-        st.success("Model berhasil diunduh.")
-    else:
-        st.info("Model sudah tersedia di direktori lokal.")
-
-    # Load model
-    @st.cache(allow_output_mutation=True)
-    def load_model_from_path(path):
-        return load_model(path)
-
-    model = load_model_from_path(model_path)
+model = load_breast_cancer_model()
 
 # Pastikan model berhasil dimuat sebelum melanjutkan
 if model is None:
